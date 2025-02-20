@@ -1,0 +1,98 @@
+Using an Express Server with Redis & Cloud Run
+This approach sets up an Express server that:
+
+Fetches images from GCS.
+Caches them in Redis (so future requests don’t hit GCS).
+Deploys on Google Cloud Run (auto-scaling, low cost).
+
+Step 1: Set Up Redis (Upstash or Cloud Memorystore)
+Option 1: Upstash (Free tier)
+
+Sign up at Upstash.
+Get the Redis connection URL.
+
+Option 2: Google Cloud Memorystore
+
+In Google Cloud Console, create a Memorystore Redis instance.
+
+Step 2: Create an Express Server
+
+```
+const express = require("express");
+const axios = require("axios");
+const Redis = require("ioredis");
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+// Redis connection (use Upstash or Google Memorystore)
+const redis = new Redis(process.env.REDIS_URL);
+
+// GCS bucket details
+const BUCKET_URL = "https://storage.googleapis.com/YOUR_BUCKET_NAME/";
+
+app.get("/image/:filename", async (req, res) => {
+  const filename = req.params.filename;
+  const imageUrl = `${BUCKET_URL}${filename}`;
+
+  try {
+    // Check Redis cache first
+    const cachedImage = await redis.get(filename);
+    if (cachedImage) {
+      console.log("Serving from cache");
+      return res.redirect(cachedImage);
+    }
+
+    // Fetch image from GCS
+    console.log("Fetching from GCS");
+    const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
+    const imageBuffer = Buffer.from(response.data, "binary");
+
+    // Cache in Redis for 1 hour
+    await redis.set(filename, imageUrl, "EX", 3600);
+
+    res.setHeader("Content-Type", response.headers["content-type"]);
+    res.send(imageBuffer);
+  } catch (error) {
+    console.error("Error fetching image:", error.message);
+    res.status(500).send("Error loading image");
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+
+Step 3: Deploy to Google Cloud Run
+Create a Dockerfile for Cloud Run:
+
+```
+FROM node:18
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+CMD ["node", "server.js"]
+
+
+Build & Push to Google Cloud Container Registry
+
+gcloud auth configure-docker
+docker build -t gcr.io/YOUR_PROJECT_ID/image-cache .
+docker push gcr.io/YOUR_PROJECT_ID/image-cache
+Deploy to Cloud Run
+
+gcloud run deploy image-cache \
+  --image gcr.io/YOUR_PROJECT_ID/image-cache \
+  --platform managed \
+  --allow-unauthenticated \
+  --set-env-vars REDIS_URL=YOUR_REDIS_CONNECTION_STRING
+
+👉 Now, users will request images via:
+
+https://your-cloud-run-url/image/filename.jpg
+Instead of hitting GCS directly, Cloud Run + Redis will handle it.
