@@ -24,6 +24,7 @@ Instead of serving images directly from GCS, you can use a simple proxy API to s
 Option A: Use Firebase Functions (or Cloud Run)
 Deploy a simple function that fetches images from GCS, caches them, and serves them to users.
 Use Redis (via Upstash or Cloud Memorystore) to cache responses.
+
 Option B: Use an Express Server with Caching
 Deploy a lightweight Express server on Vercel, Railway, or Fly.io.
 Store frequently accessed images in Redis or a temporary in-memory cache.
