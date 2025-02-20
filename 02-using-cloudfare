@@ -1,0 +1,38 @@
+Using Cloudflare's Free CDN (Best for Static Images)
+Cloudflare will cache images and serve them from its edge network, reducing requests to Google Cloud Storage (GCS).
+
+Steps to Set Up Cloudflare as a CDN for GCS
+✅ Step 1: Make Your GCS Bucket Public
+
+Go to Google Cloud Console.
+Navigate to Cloud Storage > Your Bucket.
+Click on Permissions → Add principal.
+
+Add allUsers with the role Storage Object Viewer (to make objects publicly readable).
+Your public URL for an image will be: https://storage.googleapis.com/YOUR_BUCKET_NAME/image.jpg
+
+Step 2: Set Up a Custom Domain in Cloudflare
+
+Sign up at Cloudflare and add your domain.
+In the DNS settings, create a CNAME record:
+
+```
+Name: cdn
+Target: storage.googleapis.com
+Proxy Status: Proxied (orange cloud)
+```
+
+Now, instead of hitting GCS directly, users will use: https://cdn.yourdomain.com/image.jpg
+
+Cloudflare will cache the images at its edge locations.
+
+✅ Step 3: Adjust Cache Rules in Cloudflare
+
+Go to Caching > Cache Rules.
+
+Add a rule:
+URL Pattern: cdn.yourdomain.com/*
+Cache Level: "Cache Everything"
+Edge Cache TTL: 1 month (adjust based on frequency of changes).
+
+👉 Benefit: Cloudflare serves cached images instead of requesting them from GCS, reducing costs and increasing speed.
